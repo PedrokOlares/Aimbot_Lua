@@ -1,10 +1,6 @@
 # 🪐 Seraloc_Dev — Premium Script Hub
 
-<p align="center">
-  <img src="https://shields.io" alt="Luau">
-  <img src="https://shields.io" alt="Status">
-  <img src="https://shields.io" alt="License">
-</p>
+
 
 ---
 
