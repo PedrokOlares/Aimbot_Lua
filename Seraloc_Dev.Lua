@@ -378,7 +378,6 @@ end
 end)
 
 -- 3. ESP Box 2D
-- 3. ESP Box 2D
 local toggleEsp = createHackButton("ESP Box 2D", function(state)
     espActive = state
     if state then
@@ -616,38 +615,61 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
+-- Tabela para guardar se cada hack está ligado (true) ou desligado (false)
+local hackStates = {
+    ["Invisible Mode"] = false,
+    ["NoClip Engine"]  = false,
+    ["ESP Box 2D"]     = false,
+    ["AimBot Pro"]     = false,
+    ["Fly Engine"]     = false
+}
+
 ------------------------------------------------------------
 -- SISTEMA DE LEITURA DAS TECLAS CUSTOMIZÁVEIS E GLOBAIS
 ------------------------------------------------------------
 UserInputService.InputBegan:Connect(function(input, gpe)
+    -- Se o jogador estiver digitando no chat, ignora o teclado para não ativar os hacks sem querer
     if gpe then return end
     
-    -- Escuta dinamicamente se o usuário pressionou o atalho salvo de cada função
+    -- 1. CHECAGEM DOS ATALHOS CUSTOMIZÁVEIS
+    -- Inverte o estado atual (se era false vira true, e vice-versa) e chama a função correspondente
     if input.KeyCode == keybinds["Invisible Mode"] then 
-        toggleInv()
+        hackStates["Invisible Mode"] = not hackStates["Invisible Mode"]
+        toggleInv(hackStates["Invisible Mode"])
+        
     elseif input.KeyCode == keybinds["NoClip Engine"] then 
-        toggleClip()
+        hackStates["NoClip Engine"] = not hackStates["NoClip Engine"]
+        toggleClip(hackStates["NoClip Engine"]) -- Passa o novo estado (true/false) para a função
+        
     elseif input.KeyCode == keybinds["ESP Box 2D"] then 
-        toggleEsp()
+        hackStates["ESP Box 2D"] = not hackStates["ESP Box 2D"]
+        toggleEsp(hackStates["ESP Box 2D"])
+        
     elseif input.KeyCode == keybinds["AimBot Pro"] then 
-        toggleAim()
+        hackStates["AimBot Pro"] = not hackStates["AimBot Pro"]
+        toggleAim(hackStates["AimBot Pro"])
+        
     elseif input.KeyCode == keybinds["Fly Engine"] then 
-        toggleFly()
+        hackStates["Fly Engine"] = not hackStates["Fly Engine"]
+        toggleFly(hackStates["Fly Engine"])
     
-    -- Tecla [B] - Oculta/Exibe o Menu
+    -- 2. TECLA [B] - OCULTA / EXIBE O MENU (Com animação corrigida)
     elseif input.KeyCode == Enum.KeyCode.B then
         if main.Visible then
-            TweenService:Create(main, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.fromOffset(360, 0), BackgroundTransparency = 1}):Play()
-            task.wait(0.2)
+            -- Animação fechando
+            local tween = TweenService:Create(main, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.fromOffset(360, 0), BackgroundTransparency = 1})
+            tween:Play()
+            tween.Completed:Wait() -- Espera a animação acabar antes de sumir com o menu
             main.Visible = false
         else
-            main.Visible = true
+            -- Animação abrindo
             main.Size = UDim2.fromOffset(360, 0)
             main.BackgroundTransparency = 1
+            main.Visible = true
             TweenService:Create(main, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(360, 340), BackgroundTransparency = 0}):Play()
         end
         
-    -- Tecla [Delete] - Autodestruição e Limpeza
+    -- 3. TECLA [DELETE] - AUTODESTRUIÇÃO E LIMPEZA
     elseif input.KeyCode == Enum.KeyCode.Delete then
         espActive = false
         if aimbotConnection then aimbotConnection:Disconnect() end
@@ -655,13 +677,15 @@ UserInputService.InputBegan:Connect(function(input, gpe)
         if flyConnection then flyConnection:Disconnect() end
         if FOVring then FOVring:Remove() end
         
+        -- Limpa os desenhos do ESP da tela
         for p, objs in pairs(espObjects) do
             for _, obj in pairs(objs) do 
-                obj:Remove() 
+                if obj and obj.Remove then obj:Remove() end
             end
         end
         table.clear(espObjects)
         
+        -- Restaura a transparência original do personagem
         local char = player.Character
         if char then
             for part, trans in pairs(originalTransparencies) do
@@ -671,6 +695,8 @@ UserInputService.InputBegan:Connect(function(input, gpe)
             end
         end
         table.clear(originalTransparencies)
-        gui:Destroy()
+        
+        -- Deleta a interface do exploit
+        if gui then gui:Destroy() end
     end
 end)
