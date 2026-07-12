@@ -378,23 +378,33 @@ end
 end)
 
 -- 3. ESP Box 2D
+- 3. ESP Box 2D
 local toggleEsp = createHackButton("ESP Box 2D", function(state)
     espActive = state
     if state then
         local function createESP(p)
             if p == player then return end
             
-            local box = Drawing.new("Square"); box.Visible = false; box.Color = C.magenta; box.Thickness = 1.5; box.Filled = false
+            -- Criando as 8 linhas para os cantos (Corner Box)
+            local corners = {}
+            for i = 1, 8 do
+                local line = Drawing.new("Line")
+                line.Visible = false
+                line.Thickness = 1.5
+                corners[i] = line
+            end
+
             local healthBarBg = Drawing.new("Square"); healthBarBg.Visible = false; healthBarBg.Color = Color3.fromRGB(40, 40, 40); healthBarBg.Thickness = 1; healthBarBg.Filled = true
             local healthBar = Drawing.new("Square"); healthBar.Visible = false; healthBar.Color = C.green; healthBar.Thickness = 1; healthBar.Filled = true
             local distText = Drawing.new("Text"); distText.Visible = false; distText.Color = C.text; distText.Size = 13; distText.Center = true; distText.Outline = true; distText.Font = 2
 
-            espObjects[p] = {box, healthBarBg, healthBar, distText}
+            espObjects[p] = {corners, healthBarBg, healthBar, distText}
 
             local conn
             conn = RunService.RenderStepped:Connect(function()
                 if not espActive or not espObjects[p] then
-                    box:Remove(); healthBarBg:Remove(); healthBar:Remove(); distText:Remove()
+                    for _, line in pairs(corners) do line:Remove() end
+                    healthBarBg:Remove(); healthBar:Remove(); distText:Remove()
                     if conn then conn:Disconnect() end
                     return
                 end
@@ -410,31 +420,73 @@ local toggleEsp = createHackButton("ESP Box 2D", function(state)
                         local sizeX = math.clamp(2000 / distanceStuds, 10, 150)
                         local sizeY = math.clamp(3000 / distanceStuds, 15, 220)
 
-                        box.Size = Vector2.new(sizeX, sizeY)
-                        box.Position = Vector2.new(pos.X - sizeX / 2, pos.Y - sizeY / 2)
-                        box.Visible = true
+                        -- Posição base do retângulo
+                        local posX = pos.X - sizeX / 2
+                        local posY = pos.Y - sizeY / 2
 
+                        -- 1. Definição de Cor por Time (Aliado = Azul, Inimigo = Vermelho)
+                        local boxColor = Color3.fromRGB(255, 0, 0) -- Padrão: Vermelho
+                        if player.Team and p.Team then
+                            if player.Team == p.Team then
+                                boxColor = Color3.fromRGB(0, 120, 255) -- Aliado: Azul
+                            end
+                        elseif player.Neutral == false and p.Neutral == false then
+                            -- Caso o jogo use outra lógica de time
+                            if player.TeamColor == p.TeamColor then
+                                boxColor = Color3.fromRGB(0, 120, 255)
+                            end
+                        end
+
+                        -- 2. Lógica do Corner Box (Espaçamento nas retas)
+                        local lineLength = sizeX * 0.25 -- Tamanho de cada traço do canto (25% do tamanho total)
+
+                        -- Top-Left (Canto Superior Esquerdo)
+                        corners[1].From = Vector2.new(posX, posY); corners[1].To = Vector2.new(posX + lineLength, posY)
+                        corners[2].From = Vector2.new(posX, posY); corners[2].To = Vector2.new(posX, posY + lineLength)
+                        
+                        -- Top-Right (Canto Superior Direito)
+                        corners[3].From = Vector2.new(posX + sizeX, posY); corners[3].To = Vector2.new(posX + sizeX - lineLength, posY)
+                        corners[4].From = Vector2.new(posX + sizeX, posY); corners[4].To = Vector2.new(posX + sizeX, posY + lineLength)
+                        
+                        -- Bottom-Left (Canto Inferior Esquerdo)
+                        corners[5].From = Vector2.new(posX, posY + sizeY); corners[5].To = Vector2.new(posX + lineLength, posY + sizeY)
+                        corners[6].From = Vector2.new(posX, posY + sizeY); corners[6].To = Vector2.new(posX, posY + sizeY - lineLength)
+                        
+                        -- Bottom-Right (Canto Inferior Direito)
+                        corners[7].From = Vector2.new(posX + sizeX, posY + sizeY); corners[7].To = Vector2.new(posX + sizeX - lineLength, posY + sizeY)
+                        corners[8].From = Vector2.new(posX + sizeX, posY + sizeY); corners[8].To = Vector2.new(posX + sizeX, posY + sizeY - lineLength)
+
+                        -- Atualiza cor e visibilidade das linhas
+                        for _, line in pairs(corners) do
+                            line.Color = boxColor
+                            line.Visible = true
+                        end
+
+                        -- Barra de Vida
                         local barWidth = 3; local barOffsetX = 6
                         healthBarBg.Size = Vector2.new(barWidth, sizeY)
-                        healthBarBg.Position = Vector2.new(box.Position.X - barOffsetX, box.Position.Y)
+                        healthBarBg.Position = Vector2.new(posX - barOffsetX, posY)
                         healthBarBg.Visible = true
 
                         local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
                         healthBar.Size = Vector2.new(barWidth, sizeY * healthPercent)
-                        healthBar.Position = Vector2.new(box.Position.X - barOffsetX, box.Position.Y + (sizeY * (1 - healthPercent)))
+                        healthBar.Position = Vector2.new(posX - barOffsetX, posY + (sizeY * (1 - healthPercent)))
                         healthBar.Visible = true
 
+                        -- Texto de Distância
                         local distanceMeters = distanceStuds / 3.57
                         local displayDistance = (distanceMeters >= 1000) and string.format("%.2f km", distanceMeters / 1000) or string.format("%.0f m", distanceMeters)
 
                         distText.Text = displayDistance
-                        distText.Position = Vector2.new(pos.X, box.Position.Y + sizeY + 4)
+                        distText.Position = Vector2.new(pos.X, posY + sizeY + 4)
                         distText.Visible = true
                     else
-                        box.Visible = false; healthBarBg.Visible = false; healthBar.Visible = false; distText.Visible = false
+                        for _, line in pairs(corners) do line.Visible = false end
+                        healthBarBg.Visible = false; healthBar.Visible = false; distText.Visible = false
                     end
                 else
-                    box.Visible = false; healthBarBg.Visible = false; healthBar.Visible = false; distText.Visible = false
+                    for _, line in pairs(corners) do line.Visible = false end
+                    healthBarBg.Visible = false; healthBar.Visible = false; distText.Visible = false
                 end
             end)
         end
@@ -442,12 +494,16 @@ local toggleEsp = createHackButton("ESP Box 2D", function(state)
         Players.PlayerAdded:Connect(createESP)
     else
         for p, objs in pairs(espObjects) do
-            for _, obj in pairs(objs) do obj:Remove() end
+            if type(objs[1]) == "table" then
+                for _, line in pairs(objs[1]) do line:Remove() end
+            else
+                objs[1]:Remove()
+            end
+            objs[2]:Remove(); objs[3]:Remove(); objs[4]:Remove()
         end
         table.clear(espObjects)
     end
 end)
-
 -- 4. AimBot Pro
 local toggleAim = createHackButton("AimBot Pro", function(state)
 -- Correção do Aimbot Connection
